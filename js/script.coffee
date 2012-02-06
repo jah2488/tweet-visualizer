@@ -1,7 +1,7 @@
 $(document).ready ->
 	CanvasXSize = 900
 	CanvasYSize = 600
-	speed       = 30    #lower is faster
+	speed       = 30  #lower is faster
 	scale       = 1.0
 	x           = 800
 	y           = 300 #vertical offset
@@ -9,11 +9,20 @@ $(document).ready ->
 	clearX      = CanvasXSize
 	clearY      = CanvasYSize
 
-	wordList    = []
-	wordArray   = []
-	tweet       = {words: ["this", "is", "my", "favorite", "tweet"], mood:"pos"}
-	tweet2      = {words: ["I", "love", "to", "tweet", "my", "favorite", "tweet","tweet"], mood:"neg"}
-	tweetList   = []
+	wordList     = []
+	wordArray    = []
+	linkArray    = []
+	hashArray    = []
+	hashCount    = 0
+	rtCount      = 0
+	mentionCount = 0
+	linkCount    = 0
+	posCount     = 0
+	negCount     = 0
+	tweet        = {words: ["this", "is", "my", "favorite", "tweet"], mood:"pos"}
+	tweet2       = {words: ["I", "love", "to", "tweet", "my", "favorite", "tweet","tweet"], mood:"neg"}
+	tweet3       = {words: ["Why", "does", "it", "not", "stop", "bleeding"]}
+	tweetList    = [tweet,tweet2,tweet3]
 
 	init= () ->
 		canvas = document.getElementById("canvas")
@@ -41,7 +50,14 @@ $(document).ready ->
 				ctx.fillStyle = "red"
 			if word.x == 0
 				ctx.clearRect(0,0,5, clearY)
-			
+		updateDisplay()
+	updateDisplay= () ->
+		$('span#RT-count')     .text(rtCount     )
+		$('span#hash-count')   .text(hashCount   )
+		$('span#pos-count')    .text(posCount    )
+		$('span#neg-count')    .text(negCount    )
+		$('span#link-count')   .text(linkCount   )
+		$('span#mention-count').text(mentionCount)
 	getTweet= (query) ->
 		query = escape(query)
 		$.ajax(
@@ -49,7 +65,7 @@ $(document).ready ->
 			dataType  : "jsonp"
 			timeout   : 5000
 			success   : (data) ->
-				console.log(data)
+				# console.log(data)
 				resultList = data.results
 				processTweets(resultList)
 			error     : (data) ->
@@ -59,13 +75,32 @@ $(document).ready ->
 
 	processTweets= (results) ->
 		for result in results
+			tweetText = sanitizeList(result.text.split(" "))
 			tweet = 
-				words : result.text.split(" ")
+				words : tweetText
 				mood  : findMood(result.text.split(" "))
 			tweetList.push(tweet)
-		console.log(tweetList)
+		#console.log(tweetList)
 		for tweet in tweetList
 			rateTweet(tweet)
+
+	sanitizeList= (array) ->
+		console.log(array)
+		sanitizedArray = []
+		for item in array
+			if item[0] == "#"
+				hashCount += 1
+				hashArray.push(item)
+				sanitizedArray.push(item)
+			if item[0] == "@"
+				mentionCount +=1
+				sanitizedArray.push(item.replace('@',''))
+			if item.replace(/[^a-zA-Z 0-9]+/g, '').length > 0
+				sanitizedArray.push(item.replace(/[^a-zA-Z 0-9]+/g, ''))
+			
+		console.log(sanitizedArray)
+
+
 	rateTweet= (tweet) ->
 		for word in tweet.words
 			# console.log("RateTweet word in tweet.words =>" + word)
@@ -93,10 +128,14 @@ $(document).ready ->
 				# console.log("Existing Word " + existWord.name)
 				existWord.frequency = (existWord.frequency + 1)
 				$('td#' + word).next().text(existWord.frequency)
+
 				# console.log("Existing Word " + existWord.frequency)
 		sortTable()
 	sortTable= () ->
-		$('table')
+		rows = $('table tr:not(:first)')
+		for row in rows
+			console.log(rows)
+
 	findMood= (data) ->
 		pos  = 0
 		neut = 0
@@ -107,9 +146,14 @@ $(document).ready ->
 				when ":(", "sad", "upset", "frustrated", "bad", "hate" then neg++
 
 		switch Math.max(pos,neut,neg)
-			when pos  then "pos"
-			when neut then "neut"
-			when neg  then "neg"
+			when pos
+				posCount += 1
+				"pos"
+			when neut
+				"neut"
+			when neg
+				negCount += 1
+				"neg"
 			else
 				"neut"
 
@@ -119,7 +163,9 @@ $(document).ready ->
 		e.preventDefault
 		query = $("input#search").val()
 		console.log("Query=" + query)
-		getTweet(query)
+		for tweet in tweetList
+			rateTweet(tweet)
+		# getTweet(query)
 	# console.log("Tweet" + tweet)
 	# console.log("Tweet List" + tweetList)
 	# console.log("WordList" + wordArray.toString())

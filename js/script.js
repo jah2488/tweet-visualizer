@@ -1,6 +1,6 @@
 (function() {
   $(document).ready(function() {
-    var CanvasXSize, CanvasYSize, clearX, clearY, draw, dx, findMood, getTweet, init, processTweets, rateTweet, scale, sortTable, speed, tweet, tweet2, tweetList, wordArray, wordList, x, y;
+    var CanvasXSize, CanvasYSize, clearX, clearY, draw, dx, findMood, getTweet, hashArray, hashCount, init, linkArray, linkCount, mentionCount, negCount, posCount, processTweets, rateTweet, rtCount, sanitizeList, scale, sortTable, speed, tweet, tweet2, tweet3, tweetList, updateDisplay, wordArray, wordList, x, y;
     CanvasXSize = 900;
     CanvasYSize = 600;
     speed = 30;
@@ -12,6 +12,14 @@
     clearY = CanvasYSize;
     wordList = [];
     wordArray = [];
+    linkArray = [];
+    hashArray = [];
+    hashCount = 0;
+    rtCount = 0;
+    mentionCount = 0;
+    linkCount = 0;
+    posCount = 0;
+    negCount = 0;
     tweet = {
       words: ["this", "is", "my", "favorite", "tweet"],
       mood: "pos"
@@ -20,7 +28,10 @@
       words: ["I", "love", "to", "tweet", "my", "favorite", "tweet", "tweet"],
       mood: "neg"
     };
-    tweetList = [];
+    tweet3 = {
+      words: ["Why", "does", "it", "not", "stop", "bleeding"]
+    };
+    tweetList = [tweet, tweet2, tweet3];
     init = function() {
       var canvas, ctx;
       canvas = document.getElementById("canvas");
@@ -29,12 +40,11 @@
       return setInterval(draw, speed);
     };
     draw = function() {
-      var ctx, word, _i, _len, _results;
+      var ctx, word, _i, _len;
       ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, clearX, clearY);
       ctx.fillRect(5, 5, 2, 2);
       ctx.fillRect(CanvasXSize / 2, 5, 2, 2);
-      _results = [];
       for (_i = 0, _len = wordArray.length; _i < _len; _i++) {
         word = wordArray[_i];
         y = ((word.frequency * 10) * -1) + 300;
@@ -50,9 +60,19 @@
         } else {
           ctx.fillStyle = "red";
         }
-        _results.push(word.x === 0 ? ctx.clearRect(0, 0, 5, clearY) : void 0);
+        if (word.x === 0) {
+          ctx.clearRect(0, 0, 5, clearY);
+        }
       }
-      return _results;
+      return updateDisplay();
+    };
+    updateDisplay = function() {
+      $('span#RT-count').text(rtCount);
+      $('span#hash-count').text(hashCount);
+      $('span#pos-count').text(posCount);
+      $('span#neg-count').text(negCount);
+      $('span#link-count').text(linkCount);
+      return $('span#mention-count').text(mentionCount);
     };
     getTweet = function(query) {
       query = escape(query);
@@ -62,7 +82,6 @@
         timeout: 5000,
         success: function(data) {
           var resultList;
-          console.log(data);
           resultList = data.results;
           return processTweets(resultList);
         },
@@ -73,22 +92,43 @@
       });
     };
     processTweets = function(results) {
-      var result, tweet, _i, _j, _len, _len2, _results;
+      var result, tweet, tweetText, _i, _j, _len, _len2, _results;
       for (_i = 0, _len = results.length; _i < _len; _i++) {
         result = results[_i];
+        tweetText = sanitizeList(result.text.split(" "));
         tweet = {
-          words: result.text.split(" "),
+          words: tweetText,
           mood: findMood(result.text.split(" "))
         };
         tweetList.push(tweet);
       }
-      console.log(tweetList);
       _results = [];
       for (_j = 0, _len2 = tweetList.length; _j < _len2; _j++) {
         tweet = tweetList[_j];
         _results.push(rateTweet(tweet));
       }
       return _results;
+    };
+    sanitizeList = function(array) {
+      var item, sanitizedArray, _i, _len;
+      console.log(array);
+      sanitizedArray = [];
+      for (_i = 0, _len = array.length; _i < _len; _i++) {
+        item = array[_i];
+        if (item[0] === "#") {
+          hashCount += 1;
+          hashArray.push(item);
+          sanitizedArray.push(item);
+        }
+        if (item[0] === "@") {
+          mentionCount += 1;
+          sanitizedArray.push(item.replace('@', ''));
+        }
+        if (item.replace(/[^a-zA-Z 0-9]+/g, '').length > 0) {
+          sanitizedArray.push(item.replace(/[^a-zA-Z 0-9]+/g, ''));
+        }
+      }
+      return console.log(sanitizedArray);
     };
     rateTweet = function(tweet) {
       var arrayPos, existWord, newWord, word, _i, _len, _ref;
@@ -115,7 +155,14 @@
       return sortTable();
     };
     sortTable = function() {
-      return $('table');
+      var row, rows, _i, _len, _results;
+      rows = $('table tr:not(:first)');
+      _results = [];
+      for (_i = 0, _len = rows.length; _i < _len; _i++) {
+        row = rows[_i];
+        _results.push(console.log(rows));
+      }
+      return _results;
     };
     findMood = function(data) {
       var neg, neut, pos, word, _i, _len;
@@ -144,10 +191,12 @@
       }
       switch (Math.max(pos, neut, neg)) {
         case pos:
+          posCount += 1;
           return "pos";
         case neut:
           return "neut";
         case neg:
+          negCount += 1;
           return "neg";
         default:
           return "neut";
@@ -155,11 +204,16 @@
     };
     init();
     return $('button#button').click(function(e) {
-      var query;
+      var query, tweet, _i, _len, _results;
       e.preventDefault;
       query = $("input#search").val();
       console.log("Query=" + query);
-      return getTweet(query);
+      _results = [];
+      for (_i = 0, _len = tweetList.length; _i < _len; _i++) {
+        tweet = tweetList[_i];
+        _results.push(rateTweet(tweet));
+      }
+      return _results;
     });
   });
 }).call(this);
